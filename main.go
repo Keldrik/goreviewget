@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -30,21 +31,21 @@ type Review struct {
 	UpdateTimestamp   int    `bson:"updated,omitempty" json:"update_timestamp"`
 }
 
-//var mongoUrl = "mongodb://localhost"
-var mongoUrl = os.Getenv("MONGOURL")
-var shopId = os.Getenv("SHOPID")
-var apiKey = os.Getenv("APIKEY")
+// var mongoUrl = "mongodb://localhost"
+
 var downloadedReviews []Review
 
 func getReviewsFromEtsy(pageIndex int, pageSize int) {
 	fmt.Printf("Get Etsy API Reviews Page %d with Page Size %d...\n", pageIndex+1, pageSize)
-	req, _ := http.NewRequest("GET", fmt.Sprintf("https://openapi.etsy.com/v3/application/shops/%s/reviews?limit=%d&offset=%d", shopId, pageSize, pageIndex*pageSize), nil)
+	req, _ := http.NewRequest("GET", fmt.Sprintf("https://openapi.etsy.com/v3/application/shops/%s/reviews?limit=%d&offset=%d", os.Getenv("SHOPID"), pageSize, pageIndex*pageSize), nil)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("x-api-key", os.Getenv("APIKEY"))
+	fmt.Printf("req.URL: %v\n", req.URL)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("resp.StatusCode: %v\n", resp.StatusCode)
 	defer resp.Body.Close()
 	var reviewRequest ReviewRequest
 	err = json.NewDecoder(resp.Body).Decode(&reviewRequest)
@@ -53,7 +54,7 @@ func getReviewsFromEtsy(pageIndex int, pageSize int) {
 	}
 	downloadedReviews = append(downloadedReviews, reviewRequest.Reviews...)
 	fmt.Printf("%d Reviews added!\n", len(reviewRequest.Reviews))
-	if len(reviewRequest.Reviews) > 0 {
+	if len(reviewRequest.Reviews) > 0 && len(downloadedReviews) < 500 {
 		time.Sleep(200 * time.Millisecond)
 		getReviewsFromEtsy(pageIndex+1, pageSize)
 	}
@@ -62,7 +63,7 @@ func getReviewsFromEtsy(pageIndex int, pageSize int) {
 func saveToDatabase() {
 	fmt.Printf("Connecting to database...\n")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUrl))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGOURL")))
 	if err != nil {
 		panic(err)
 	}
@@ -89,6 +90,10 @@ func saveToDatabase() {
 }
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic(err)
+	}
 	getReviewsFromEtsy(0, 100)
 	fmt.Printf("\n%d Reviews in collection!\n\n", len(downloadedReviews))
 	saveToDatabase()
