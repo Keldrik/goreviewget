@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -90,7 +91,12 @@ func saveToDatabase() {
 }
 
 func main() {
-	err := godotenv.Load(".env")
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	envPath := filepath.Join(wd, ".env")
+	err = godotenv.Load(envPath)
 	if err != nil {
 		panic(err)
 	}
