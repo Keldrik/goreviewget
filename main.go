@@ -91,11 +91,12 @@ func saveToDatabase() {
 }
 
 func main() {
-	wd, err := os.Getwd()
+	exePath, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
-	envPath := filepath.Join(wd, ".env")
+	exeDir := filepath.Dir(exePath)
+	envPath := filepath.Join(exeDir, ".env")
 	err = godotenv.Load(envPath)
 	if err != nil {
 		panic(err)
